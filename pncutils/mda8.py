@@ -5,18 +5,29 @@ import numpy as np
 
 class Mda8:
 
-    def __init__(self, fnames, oname):
+    def __init__(self, fnames, oname=None):
+        """Moveing 8hr average
 
+        :param fnames: list of input file names
+        :param oname: (optional) output file name
+        """
         self.fnames = fnames
-        self.oname = oname
 
-        self.fo = self.mkheader()
+        self.fo = self._mkheader()
 
-        self.proc()
+        self._proc()
 
-        self.fo.save(self.oname)
+        if oname:
+            self.save(oname)
 
-    def proc(self):
+    def save(self, oname):
+        """save
+
+        :param oname: output file name
+        """
+        self.fo.save(oname)
+
+    def _proc(self):
         # read first file
 
         fn = self.fnames[0]
@@ -56,7 +67,7 @@ class Mda8:
             self.buf = o3
             i += 1
 
-    def mkheader(self):
+    def _mkheader(self):
 
         f0 = pnc.pncopen(self.fnames[0])
         atts = f0.getncatts()
@@ -101,19 +112,18 @@ class Mda8:
 
         return fo
 
-        # add values
-
-        # fo.save(self.oname)
-        # del fo
-
-        return 0, 0
-
 
 def _moving_average(x, w=8):
     return np.convolve(x, np.ones(w), 'valid') / w
 
 
 def moving_average(x, w=8):
+    """moving average on the first axis
+
+    :param x: numpy float array
+    :param w: (optional) window size, default 8
+    :return: numpy float array, first dim shorter py w-1
+    """
     n = x.shape[0]
     m = n - w + 1
     o = np.zeros((m,) + x.shape[1:])

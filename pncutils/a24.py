@@ -8,17 +8,29 @@ pm25 = ['PNO3', 'PSO4', 'PNH4', 'POA', 'SOA1', 'SOA2', 'SOA3', 'SOA4',
 
 
 class A24:
-    def __init__(self, fnames, oname):
+    def __init__(self, fnames, oname=None):
+        """24 hour average PM2.5
+
+        :param fnames: list of input file names
+        :param oname: (optional) output file name
+        """
         self.fnames = fnames
-        self.oname = oname
 
-        self.fo = self.mkheader()
+        self.fo = self._mkheader()
 
-        self.proc()
+        self._proc()
 
-        self.fo.save(self.oname)
+        if oname:
+            self.save(oname)
 
-    def proc(self):
+    def save(self, oname):
+        """save
+
+        :param oname: output file name
+        """
+        self.fo.save(oname)
+
+    def _proc(self):
         # read first file
 
         fn = self.fnames[0]
@@ -52,7 +64,7 @@ class A24:
 
             i += 1
 
-    def mkheader(self):
+    def _mkheader(self):
 
         f0 = pnc.pncopen(self.fnames[0])
         atts = f0.getncatts()
