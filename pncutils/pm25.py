@@ -2,10 +2,11 @@ import PseudoNetCDF as pnc
 import numpy as np
 import re
 
-pm25_species = ['PNO3', 'PSO4', 'PNH4', 'POA', 'SOA1', 'SOA2', 'SOA3', 'SOA4', 
-'SOPA', 'SOPB', 'PEC', 'FPRM', 'FCRS', 'NA', 'PCL'] 
+pm25_species = ['PNO3', 'PSO4', 'PNH4', 'POA', 'SOA1', 'SOA2', 'SOA3', 'SOA4',
+                'SOPA', 'SOPB', 'PEC', 'FPRM', 'FCRS', 'NA', 'PCL']
 
-class pm25:
+
+class Pm25:
     def __init__(self, fname, oname):
         self.fname = fname
         self.oname = oname
@@ -21,26 +22,22 @@ class pm25:
 
         fn = self.fname
 
-        #self.buf = np.array(pnc.pncopen(fn).variables['O3'])
+        # self.buf = np.array(pnc.pncopen(fn).variables['O3'])
 
         i = 0
         # read the next file
         f = pnc.pncopen(self.fname)
-        
-        for j,s in enumerate(pm25_species):
+
+        for j, s in enumerate(pm25_species):
             if j == 0:
                 a = np.array(f.variables[s])
             else:
-                a+= np.array(f.variables[s])
-
-
-
+                a += np.array(f.variables[s])
 
         # write
         self.fo.variables['PM25'][...] = a[...]
 
         self.fo.updatetflag()
-
 
     def mkheader(self):
 
@@ -51,7 +48,7 @@ class pm25:
         fo = pnc.cmaqfiles.ioapi_base()
 
         # copy the dimensions
-        for k,v in f0.dimensions.items():
+        for k, v in f0.dimensions.items():
             if k == 'VAR':
                 n = 1
             else:
@@ -64,31 +61,30 @@ class pm25:
         atts['VAR-LIST'] = 'PM25'.ljust(16)
         fo.setncatts(atts)
 
-
         # make variables
         fo.updatetflag()
-        for i,nm in enumerate(['X', 'Y', 'longitude', 'latitude',] ):
+        for i, nm in enumerate(['X', 'Y', 'longitude', 'latitude', ]):
             v0 = f0.variables[nm]
-            
+
             v = fo.createVariable(v0.name, v0.dtype.kind, v0.dimensions)
             v.setncatts(v0.__dict__)
             if i < 4:
                 v[...] = v0[...]
 
-
         v0 = f0.variables['PNH4']
-        v = fo.createVariable('PM25', 'f',  v0.dimensions)
-        v.setncatts({k:re.sub('PNH4', 'A24 PM2.5', v) for k,v in
-            v0.__dict__.items()})
+        v = fo.createVariable('PM25', 'f', v0.dimensions)
+        v.setncatts({k: re.sub('PNH4', 'A24 PM2.5', v) for k, v in
+                     v0.__dict__.items()})
         return fo
+
 
 if __name__ == '__main__':
     import sys
+
     fname = sys.argv[1]
     try:
-        oname =sys.argv[2]
+        oname = sys.argv[2]
     except IndexError:
         assert fname[-3:] == '.nc'
         oname = fname[:-3] + '.PM25.nc'
-    pm25(fname, oname)
-
+    Pm25(fname, oname)

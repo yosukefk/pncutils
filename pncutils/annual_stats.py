@@ -11,8 +11,7 @@ known_spc = ['A24PM25', 'MDA8O3']
 waste_first_frame = True
 
 
-class annual_stats:
-
+class Annual_stats:
 
     def drop_edges(self, x):
         # should have dont this somewhere up front, bad perfomance of ma is
@@ -45,13 +44,13 @@ class annual_stats:
 
     def my_cnt(self, x, axis):
 
-        #o = np.ma.MaskedArray(x.count(axis = axis))
-        o = np.ma.MaskedArray(x.count(axis = axis), dtype=x.dtype,
-                fill_value = x.fill_value)
+        # o = np.ma.MaskedArray(x.count(axis = axis))
+        o = np.ma.MaskedArray(x.count(axis=axis), dtype=x.dtype,
+                              fill_value=x.fill_value)
         self.drop_edges(o)
         return o
 
-    def __init__(self, fname, oname, period = 'annual', thres=None):
+    def __init__(self, fname, oname, period='annual', thres=None):
 
         self.fname = fname
         if period not in ('annual', 'monthly', 'bimonthly'):
@@ -67,21 +66,21 @@ class annual_stats:
         self.oname = oname
 
         # pick stats to calculate
-        #self.statlist = ['AMAX', 'AAVR', 'AMED', 'A3RD']
-        self.statlist = ['AVR','MAX','MED','CNT']
+        # self.statlist = ['AMAX', 'AAVR', 'AMED', 'A3RD']
+        self.statlist = ['AVR', 'MAX', 'MED', 'CNT']
 
         # description of stats
-        #self.statdesc = {k:f'Annual {v}' for k,v in zip(self.statlist,
+        # self.statdesc = {k:f'Annual {v}' for k,v in zip(self.statlist,
         #    ['maximum', 'average', 'median', '3rd high'])}
         self.statdesc = {
-                'MAX': f'{self.period} maximum',
-                'AVR': f'{self.period} mean',
-                'MED': f'{self.period} median',
-                'CNT': f'{self.period} count of days',
-                }
+            'MAX': f'{self.period} maximum',
+            'AVR': f'{self.period} mean',
+            'MED': f'{self.period} median',
+            'CNT': f'{self.period} count of days',
+        }
         self.statfunc = {
             #    k:v for k,v in zip(self.statlist,
-            #[lambda x: np.amax(x, axis=0), 
+            # [lambda x: np.amax(x, axis=0),
             #    lambda x: np.average(x, axis=0), 
             #    lambda x: np.median(x, axis=0), 
             #    lambda x: np.percentile(x, q=(363 / 365)*100, axis=0)])}
@@ -89,7 +88,7 @@ class annual_stats:
             'AVR': lambda x: self.my_avr(x, axis=0),
             'MED': lambda x: self.my_med(x, axis=0),
             'CNT': lambda x: self.my_cnt(x, axis=0),
-            }
+        }
         self.fo = self.mkheader()
         self.proc()
         self.fo.save(self.oname)
@@ -98,7 +97,7 @@ class annual_stats:
         for vn0 in self.varlist_in:
             v0 = self.f0.variables[vn0]
             for s in self.statlist:
-                vn=s+vn0
+                vn = s + vn0
                 v = self.fo.variables[vn]
                 vv = v0[...]
                 if self.thres is not None:
@@ -106,69 +105,69 @@ class annual_stats:
                         vv[v0[...] < self.thres] = np.ma.masked
 
                 if self.period == 'annual':
-                    if waste_first_frame: 
-                        x = self.statfunc[s](vv[1:,...])
+                    if waste_first_frame:
+                        x = self.statfunc[s](vv[1:, ...])
                         try:
-                            v[1,0,:,:] = x.filled()
+                            v[1, 0, :, :] = x.filled()
                         except AttributeError:
-                            v[1,0,:,:] = x
+                            v[1, 0, :, :] = x
                     else:
                         x = self.statfunc[s](vv)
                         try:
-                            v[0,0,:,:] = x.filled()
+                            v[0, 0, :, :] = x.filled()
                         except AttributeError:
-                            v[0,0,:,:] = x
+                            v[0, 0, :, :] = x
 
                 elif self.period == 'monthly':
 
                     # first day of each month
-                    day1 = [datetime.date(self.year,(_+1),1) for _ in
+                    day1 = [datetime.date(self.year, (_ + 1), 1) for _ in
                             range(12)]
                     # append first day of next year
-                    day1.append(datetime.date(self.year+1,1,1))
+                    day1.append(datetime.date(self.year + 1, 1, 1))
 
                     # express the date as jday
                     day1 = [(_ - day1[0]).days + 1 for _ in day1]
 
                     for i in range(12):
-                        if waste_first_frame: 
+                        if waste_first_frame:
                             # since 12/31 of previous year is included, day1 can be used
                             # directly as index of python array
-                            x = self.statfunc[s](vv[day1[i]:day1[i+1],...])
+                            x = self.statfunc[s](vv[day1[i]:day1[i + 1], ...])
                             try:
-                                v[i+1,0,:,:] = x.filled()
+                                v[i + 1, 0, :, :] = x.filled()
                             except AttributeError:
-                                v[i+1,0,:,:] = x
+                                v[i + 1, 0, :, :] = x
                         else:
-                            x = self.statfunc[s](vv[(day1[i]-1):(day1[i+1]-1),...])
+                            x = self.statfunc[s](vv[(day1[i] - 1):(day1[i + 1] - 1), ...])
                             try:
-                                v[i,0,:,:] = x.filled()
+                                v[i, 0, :, :] = x.filled()
                             except AttributeError:
-                                v[i,0,:,:] = x
+                                v[i, 0, :, :] = x
                 elif self.period == 'bimonthly':
                     # first day of odd month
-                    day1 = [datetime.date(self.year,(2*_+1),1) for _ in
+                    day1 = [datetime.date(self.year, (2 * _ + 1), 1) for _ in
                             range(6)]
                     # append first day of next year
-                    day1.append(datetime.date(self.year+1,1,1))
+                    day1.append(datetime.date(self.year + 1, 1, 1))
                     # express the date as jday
                     day1 = [(_ - day1[0]).days + 1 for _ in day1]
                     for i in range(6):
-                        if waste_first_frame: 
+                        if waste_first_frame:
                             # since there is 12/31 included, day1 can be used
                             # directly as index of python array
-                            x = self.statfunc[s](vv[day1[i]:day1[i+1],...])
+                            x = self.statfunc[s](vv[day1[i]:day1[i + 1], ...])
                             try:
-                                v[i+1,0,:,:] = x.filled()
+                                v[i + 1, 0, :, :] = x.filled()
                             except AttributeError:
-                                v[i+1,0,:,:] = x
+                                v[i + 1, 0, :, :] = x
 
                         else:
-                            x = self.statfunc[s](vv[(day1[i]-1):(day1[i+1]-1),...])
+                            x = self.statfunc[s](vv[(day1[i] - 1):(day1[i + 1] - 1), ...])
                             try:
-                                v[i,0,:,:] = x.filled()
+                                v[i, 0, :, :] = x.filled()
                             except AttributeError:
-                                v[i,0,:,:] = x
+                                v[i, 0, :, :] = x
                 else:
                     raise ValueError(f'self.period: {self.period}')
 
@@ -180,28 +179,27 @@ class annual_stats:
         assert f.TSTEP == 240000
         if waste_first_frame:
             # second step should be jan 1 to work around verdi's bug
-            assert f.variables['TFLAG'][1,0,0] % 1000 == 1
+            assert f.variables['TFLAG'][1, 0, 0] % 1000 == 1
         else:
-            assert f.variables['TFLAG'][0,0,0] % 1000 == 1
+            assert f.variables['TFLAG'][0, 0, 0] % 1000 == 1
         # last step shouls be last day
-        assert (f.variables['TFLAG'][-1,0,0] % 1000) in (365,366)
-
+        assert (f.variables['TFLAG'][-1, 0, 0] % 1000) in (365, 366)
 
     def mkheader(self):
         f0 = pnc.pncopen(self.fname)
         self.f0 = f0
         self.chktim(f0)
         if waste_first_frame:
-            self.year = int(f0.variables['TFLAG'][1,0,0] / 1000)
-            assert int(f0.SDATE  / 1000) - self.year == -1
+            self.year = int(f0.variables['TFLAG'][1, 0, 0] / 1000)
+            assert int(f0.SDATE / 1000) - self.year == -1
         else:
-            self.year = int(f0.variables['TFLAG'][0,0,0] / 1000)
-            assert int(f0.SDATE  / 1000) - self.year == 0
-        self.daysperyear = (datetime.date(self.year+1, 1, 1) -
-                datetime.date(self.year, 1, 1)).days
+            self.year = int(f0.variables['TFLAG'][0, 0, 0] / 1000)
+            assert int(f0.SDATE / 1000) - self.year == 0
+        self.daysperyear = (datetime.date(self.year + 1, 1, 1) -
+                            datetime.date(self.year, 1, 1)).days
         # funky time period to make the timestamp falls approximately the
         # first day of each month
-        self.dayspermonth = 30.5 
+        self.dayspermonth = 30.5
         self.dayspertwomonths = 61
 
         if self.period == 'annual':
@@ -222,7 +220,7 @@ class annual_stats:
         statdesc = self.statdesc
 
         # copy the dimensions
-        for k,v in f0.dimensions.items():
+        for k, v in f0.dimensions.items():
             if k == 'TSTEP':
                 if self.period == 'annual':
                     n = 1
@@ -243,7 +241,6 @@ class annual_stats:
             fo.createDimension(v.name, n)
         fo.dimensions['TSTEP'].setunlimited(True)
 
-
         # list of output variables
         self.varlist_in = []
         self.varlist_out = []
@@ -251,8 +248,7 @@ class annual_stats:
             if nm not in f0.variables: continue
             self.varlist_in.append(nm)
             for s in statlist:
-                self.varlist_out.append(s+nm)
-
+                self.varlist_out.append(s + nm)
 
         varlist = self.varlist_out
         # set global attr
@@ -263,9 +259,9 @@ class annual_stats:
 
         if waste_first_frame:
             sd = datetime.datetime(self.year, 1, 1) - datetime.timedelta(
-                    days=self.daysperframe)
-            atts['SDATE'] = sd.year * 1000 + ( (sd - datetime.datetime(sd.year, 1,
-                1)).days + 1 )
+                days=self.daysperframe)
+            atts['SDATE'] = sd.year * 1000 + ((sd - datetime.datetime(sd.year, 1,
+                                                                      1)).days + 1)
             atts['STIME'] = sd.hour * 10000 + sd.minute * 100 + sd.second
         else:
             pass
@@ -273,9 +269,9 @@ class annual_stats:
 
         # make variables
         fo.updatetflag()
-        for i,nm in enumerate(['X', 'Y', 'longitude', 'latitude', ]):
+        for i, nm in enumerate(['X', 'Y', 'longitude', 'latitude', ]):
             v0 = f0.variables[nm]
-            
+
             v = fo.createVariable(v0.name, v0.dtype.kind, v0.dimensions)
             v.setncatts(v0.__dict__)
             v[...] = v0[...]
@@ -288,19 +284,18 @@ class annual_stats:
                 v = fo.createVariable(s + nm, v0.dtype.kind, v0.dimensions)
                 a = v0.__dict__
                 a['long_name'] = s + a['long_name']
-                a['var_desc'] = statdesc[s] + ' ' +a['var_desc']
-                
+                a['var_desc'] = statdesc[s] + ' ' + a['var_desc']
+
                 v.setncatts(a)
-
-
 
         return fo
 
+
 def tester():
-    annual_stats(
-'camxv700.MDA8O3.tceq_bc.nc',
-'camxv700.stats.MDA8O3.tceq_bc.nc',)
+    Annual_stats(
+        'camxv700.MDA8O3.tceq_bc.nc',
+        'camxv700.stats.MDA8O3.tceq_bc.nc', )
+
 
 if __name__ == '__main__':
     tester()
-
