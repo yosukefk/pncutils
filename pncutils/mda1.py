@@ -3,10 +3,10 @@ import PseudoNetCDF as pnc
 import numpy as np
 
 
-class Mda8:
+class Mda1:
 
     def __init__(self, fnames, oname=None):
-        """Daily max 8hr average
+        """Daily max 1hr average
 
         :param fnames: list of input file names
         :param oname: (optional) output file name
@@ -30,12 +30,8 @@ class Mda8:
     def _proc(self):
         # read first file
 
-        fn = self.fnames[0]
-
-        self.buf = np.array(pnc.pncopen(fn).variables['O3'])
-
         i = 0
-        for fn in self.fnames[1:]:
+        for fn in self.fnames:
             # read the next file
             f = pnc.pncopen(fn)
             try:
@@ -46,25 +42,20 @@ class Mda8:
 
             o3 = np.array(f.variables['O3'])
 
-            tmp = np.vstack([self.buf, o3])
-
-            # get moving ave
-            a8 = moving_average(tmp[:(24 + 7)])
-            assert (a8.shape[0] == 24)
-            a8 = a8.max(axis=0)
+            assert (o3.shape[0] == 24)
+            arr = o3.max(axis=0)
 
             # get rid of values at boudary cells
-            a8[..., 0, :] = np.nan
-            a8[..., -1, :] = np.nan
-            a8[..., :, 0] = np.nan
-            a8[..., :, -1] = np.nan
+            arr[..., 0, :] = np.nan
+            arr[..., -1, :] = np.nan
+            arr[..., :, 0] = np.nan
+            arr[..., :, -1] = np.nan
 
             # write
-            self.fo.variables['MDA8O3'][i, ...] = a8[...]
+            self.fo.variables['MDA1O3'][i, ...] = arr[...]
 
             self.fo.updatetflag()
 
-            self.buf = o3
             i += 1
 
     def _mkheader(self):
@@ -78,7 +69,7 @@ class Mda8:
         # copy the dimensions
         for k, v in f0.dimensions.items():
             if k == 'TSTEP':
-                n = len(self.fnames) - 1
+                n = len(self.fnames)
             elif k == 'VAR':
                 n = 1
             else:
@@ -88,7 +79,7 @@ class Mda8:
 
         # set global attr
         atts['NVARS'] = 1
-        atts['VAR-LIST'] = 'MDA8O3'.ljust(16)
+        atts['VAR-LIST'] = 'MDA1O3'.ljust(16)
         atts['TSTEP'] = 240000
         fo.setncatts(atts)
 
@@ -98,7 +89,7 @@ class Mda8:
                                 'O3']):
             v0 = f0.variables[nm]
             if i >= 4:
-                prefix = 'MDA8'
+                prefix = 'MDA1'
             else:
                 prefix = ''
 
