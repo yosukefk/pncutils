@@ -1,6 +1,7 @@
 import PseudoNetCDF as pnc
 
 import numpy as np
+import os
 
 
 class Mda1:
@@ -12,6 +13,10 @@ class Mda1:
         :param oname: (optional) output file name
         """
         self.fnames = fnames
+
+        not_file = [_ for _ in fnames if not os.path.exists]
+        if not_file:
+            raise FileNotFoundError('\n'.join(not_file))
 
         self.fo = self._mkheader()
 
@@ -29,6 +34,10 @@ class Mda1:
 
     def _proc(self):
         # read first file
+
+        fn = self.fnames[0]
+
+        self.buf = np.array(pnc.pncopen(fn).variables['O3'])
 
         i = 0
         for fn in self.fnames:

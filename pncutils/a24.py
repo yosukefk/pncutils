@@ -1,6 +1,7 @@
 import PseudoNetCDF as pnc
 
 import numpy as np
+import os
 import re
 
 pm25 = ['PNO3', 'PSO4', 'PNH4', 'POA', 'SOA1', 'SOA2', 'SOA3', 'SOA4',
@@ -15,6 +16,10 @@ class A24:
         :param oname: (optional) output file name
         """
         self.fnames = fnames
+
+        not_file = [_ for _ in fnames if not os.path.exists]
+        if not_file:
+            raise FileNotFoundError('\n'.join(not_file))
 
         self.fo = self._mkheader()
 
@@ -68,6 +73,9 @@ class A24:
 
         f0 = pnc.pncopen(self.fnames[0])
         atts = f0.getncatts()
+        if 'IOAPI_VERSION' not in atts:
+            # its not IOAPI file
+            raise ValueError(f'not having IOAPI as global attr: {self.fnames[0]}')
 
         # create new dataset
         fo = pnc.cmaqfiles.ioapi_base()
