@@ -9,13 +9,20 @@ pm25 = ['PNO3', 'PSO4', 'PNH4', 'POA', 'SOA1', 'SOA2', 'SOA3', 'SOA4',
 
 
 class A24:
-    def __init__(self, fnames, oname=None):
+    def __init__(self, fnames, oname=None, spc='PM25'):
         """24 hour average PM2.5
 
         :param fnames: list of input file names
         :param oname: (optional) output file name
         """
         self.fnames = fnames
+
+        if spc == 'PM25':
+            self.spc = 'PM25'
+            self.raw_spc = pm25
+        else:
+            self.spc = spc
+            self.raw_spc = [spc]
 
         not_file = [_ for _ in fnames if not os.path.exists]
         if not_file:
@@ -48,7 +55,7 @@ class A24:
             f = pnc.pncopen(fn)
             print(f.SDATE, i)
 
-            for j, s in enumerate(pm25):
+            for j, s in enumerate(self.raw_spc):
                 if j == 0:
                     a = np.array(f.variables[s])
                 else:
@@ -63,7 +70,7 @@ class A24:
             a24[..., :, -1] = np.nan
 
             # write
-            self.fo.variables['A24PM25'][i, ...] = a24[...]
+            self.fo.variables['A24' + self.spc][i, ...] = a24[...]
 
             self.fo.updatetflag()
 
@@ -93,7 +100,7 @@ class A24:
 
         # set global attr
         atts['NVARS'] = 1
-        atts['VAR-LIST'] = 'A24PM25'.ljust(16)
+        atts['VAR-LIST'] = ('A24' + self.spc).ljust(16)
         atts['TSTEP'] = 240000
         fo.setncatts(atts)
 
@@ -107,9 +114,9 @@ class A24:
             if i < 4:
                 v[...] = v0[...]
 
-        v0 = f0.variables['PNH4']
-        v = fo.createVariable('A24PM25', 'f', v0.dimensions)
-        v.setncatts({k: re.sub('PNH4', 'A24 PM2.5', v) for k, v in
+        v0 = f0.variables[self.raw_spc[0]]
+        v = fo.createVariable('A24' + self.spc, 'f', v0.dimensions)
+        v.setncatts({k: re.sub(self.raw_spc[0], 'A24 '+self.spc, v) for k, v in
                      v0.__dict__.items()})
         return fo
 
