@@ -14,12 +14,12 @@ waste_first_frame = True
 class Annual_stats:
 
     def drop_edges(self, x):
-        # should have dont this somewhere up front, bad perfomance of ma is
-        # so bad, i want to mask it toward ends
-        x[..., 0, :] = np.ma.masked
-        x[..., -1, :] = np.ma.masked
-        x[..., :, 0] = np.ma.masked
-        x[..., :, -1] = np.ma.masked
+        # # should have dont this somewhere up front, bad perfomance of ma is
+        # # so bad, i want to mask it toward ends
+        # x[..., 0, :] = np.ma.masked
+        # x[..., -1, :] = np.ma.masked
+        # x[..., :, 0] = np.ma.masked
+        # x[..., :, -1] = np.ma.masked
         return x
 
     def my_avr(self, x, axis):
@@ -52,13 +52,13 @@ class Annual_stats:
 
     def __init__(self, fname, oname, period='annual', thres=None):
 
-        self.fname = fname
+        self.fname = str(fname)
         if period not in ('annual', 'monthly', 'bimonthly'):
             raise ValueError(f'period: {period}')
         self.period = period
 
         # get species to process
-        spc = [_ for _ in known_spc if _ in fname]
+        spc = [_ for _ in known_spc if _ in self.fname.upper()]
         assert len(spc) == 1
         self.spc = spc[0]
         self.thres = thres
@@ -91,7 +91,7 @@ class Annual_stats:
         }
         self.fo = self.mkheader()
         self.proc()
-        self.fo.save(self.oname)
+        self.fo.save(str(self.oname))
 
     def proc(self):
         for vn0 in self.varlist_in:

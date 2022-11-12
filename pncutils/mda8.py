@@ -58,11 +58,11 @@ class Mda8:
             assert (a8.shape[0] == 24)
             a8 = a8.max(axis=0)
 
-            # get rid of values at boudary cells
-            a8[..., 0, :] = np.nan
-            a8[..., -1, :] = np.nan
-            a8[..., :, 0] = np.nan
-            a8[..., :, -1] = np.nan
+            # # get rid of values at boudary cells
+            # a8[..., 0, :] = np.nan
+            # a8[..., -1, :] = np.nan
+            # a8[..., :, 0] = np.nan
+            # a8[..., :, -1] = np.nan
 
             # write
             self.fo.variables['MDA8O3'][i, ...] = a8[...]

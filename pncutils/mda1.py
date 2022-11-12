@@ -54,11 +54,11 @@ class Mda1:
             assert (o3.shape[0] == 24)
             arr = o3.max(axis=0)
 
-            # get rid of values at boudary cells
-            arr[..., 0, :] = np.nan
-            arr[..., -1, :] = np.nan
-            arr[..., :, 0] = np.nan
-            arr[..., :, -1] = np.nan
+            # # get rid of values at boudary cells
+            # arr[..., 0, :] = np.nan
+            # arr[..., -1, :] = np.nan
+            # arr[..., :, 0] = np.nan
+            # arr[..., :, -1] = np.nan
 
             # write
             self.fo.variables['MDA1O3'][i, ...] = arr[...]

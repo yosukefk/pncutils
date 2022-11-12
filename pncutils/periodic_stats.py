@@ -25,12 +25,12 @@ def pydate_to_iodate(pydate):
 class PeriodicStats:
 
     def drop_edges(self, x):
-        # should have dont this somewhere up front, bad perfomance of ma is
-        # so bad, i want to mask it toward ends
-        x[..., 0, :] = np.ma.masked
-        x[..., -1, :] = np.ma.masked
-        x[..., :, 0] = np.ma.masked
-        x[..., :, -1] = np.ma.masked
+        # # should have dont this somewhere up front, bad perfomance of ma is
+        # # so bad, i want to mask it toward ends
+        # x[..., 0, :] = np.ma.masked
+        # x[..., -1, :] = np.ma.masked
+        # x[..., :, 0] = np.ma.masked
+        # x[..., :, -1] = np.ma.masked
         return x
 
     def my_avr(self, x, axis):

@@ -53,11 +53,11 @@ class A24spc:
 
                 a24 = a.mean(axis=0)
 
-                # get rid of values at boudary cells
-                a24[..., 0, :] = np.nan
-                a24[..., -1, :] = np.nan
-                a24[..., :, 0] = np.nan
-                a24[..., :, -1] = np.nan
+                # # get rid of values at boudary cells
+                # a24[..., 0, :] = np.nan
+                # a24[..., -1, :] = np.nan
+                # a24[..., :, 0] = np.nan
+                # a24[..., :, -1] = np.nan
 
                 # write
                 self.fo.variables[s][i, ...] = a.mean(axis=0)
