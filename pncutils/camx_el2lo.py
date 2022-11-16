@@ -1,10 +1,12 @@
 # convert elevated emission to lo local format
 
 import PseudoNetCDF as pnc
+import warnings
+
 
 class El2lo:
 
-    def __init__(self, fname, loname, oname=None):
+    def __init__(self, fname, loname, oname=None, species=None, year=None):
         """camx elevated to lolevel
 
         :param fname: input elevated file name
@@ -14,8 +16,15 @@ class El2lo:
 
         self.fname = fname
         self.loname = loname
+        assert (species is None or isinstance(species, list))
+        self.species = species
+        self.year = year
 
         self.fo = self._mkheader()
+        if self.fo is None:
+            return
+
+
 
         self._proc()
 
@@ -49,8 +58,9 @@ class El2lo:
         self.jdx = jdx
         self.oob = oob
 
-        species = [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
-        for s in species:
+        #species = [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
+        #for s in species:
+        for s in self.species:
             print(s)
             try:
                 v0 = f0.variables[s]
@@ -68,9 +78,9 @@ class El2lo:
     def _mkheader(self):
 
         # attributes from existing files
-        f0 = pnc.pncopen(self.fname)
+        f0 = pnc.pncopen(str(self.fname))
         atts0 = f0.getncatts()
-        f1 = pnc.pncopen(self.loname)
+        f1 = pnc.pncopen(str(self.loname))
         atts1 = f1.getncatts()
 
         # create new dataset
@@ -89,13 +99,15 @@ class El2lo:
 
         # copy attributes
         atts = atts0.copy()
-        print(1, atts)
         atts.update({k:v for k,v in atts1.items() if k in 
             ('NCOLS', 'NROWS', 'XORIG', 'YORIG', 'XCELL', 'YCELL', 
                     'CAMx_NAME', 'FILEDESC')})
-        print(2, atts)
+
+        if self.year is not None:
+            print(atts['SDATE'])
+            atts['SDATE'] = atts['SDATE'] % 1000 + self.year * 1000
+            print(atts['SDATE'])
         fo.setncatts(atts)
-        print(3, fo.getncatts())
 
 
         # make variables
@@ -104,7 +116,17 @@ class El2lo:
         #names = ['X', 'Y',                    'longitude', 'latitude'] 
         names0 = ['X', 'Y', 'TFLAG', 'ETFLAG', 'longitude', 'latitude'] 
 
-        names = names0 + [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
+        myspecies = [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
+        if self.species is None:
+            self.species = myspecies
+        else:
+            found = [_ for _ in self.species if _ in myspecies]
+            if len(found) == 0:
+                warnings.warn(f'none of {self.species} found in file')
+                return None
+            self.species = found
+            
+        names = names0 + self.species
         print(names)
 
         vx = f1.variables[atts1['VAR-LIST'][:16].strip()]
@@ -121,7 +143,7 @@ class El2lo:
                 vv = f0.variables[nm]
                 dim = vx.dimensions
 
-            v = fo.createVariable(vv.name, vv.dtype.kind, dim)
+            v = fo.createVariable(vv.name, vv.dtype.kind, dim)#, compression='zlib', complevel=2)
             v.setncatts(vv.__dict__)
 
             if nm in names0:
@@ -133,7 +155,6 @@ class El2lo:
                 else:
                     v[...] = vv[...]
         attso = fo.getncatts()
-        print(4, attso)
         return fo
 
 
@@ -148,7 +169,34 @@ def tester():
     lo = El2lo(fin, flo, fout)
     return lo
 
-lo = tester()
+#lo = tester()
+
+def main():
+    import sys
+    import argparse
+    import re
+    p = argparse.ArgumentParser()
+    p.add_argument('filename',  help='elevated emission file name')
+    p.add_argument('outname', nargs='?', help='output file name')
+
+    p.add_argument('-s', '--species', help='species to extract (comma or space delimited)')
+    p.add_argument('-l', '--loname', help='lolevel file name (to define grid)')
+
+    p.add_argument('-y', '--year', help='overwrite year', type=int )
+    args = p.parse_args()
+
+    if args.species is not None:
+        args.species = re.split('[, ] *', args.species)
+
+    if args.outname is None:
+        args.outname = args.filename[:-3] + '.el2lo.nc'
+
+
+    lo = El2lo(args.filename, args.loname, args.outname, args.species, year=args.year)
+
+
+if __name__ == '__main__':
+    main()
 
 
 
