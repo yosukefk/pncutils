@@ -30,7 +30,7 @@ class Mda8:
 
         :param oname: output file name
         """
-        self.fo.save(oname)
+        self.fo.save(str(oname))
 
     def _proc(self):
         # read first file
