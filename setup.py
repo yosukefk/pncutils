@@ -10,4 +10,7 @@ setup(
         install_requires=[
             'PseudoNetCDF', 
             ],
+        entry_points={
+            'console_scripts': ['camx_el2lo=pncutils.camx_el2lo:main']
+            },
         )
