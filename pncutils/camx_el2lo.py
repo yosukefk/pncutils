@@ -180,7 +180,7 @@ def main():
     p.add_argument('outname', nargs='?', help='output file name')
 
     p.add_argument('-s', '--species', help='species to extract (comma or space delimited)')
-    p.add_argument('-l', '--loname', help='lolevel file name (to define grid)')
+    p.add_argument('-l', '--loname', required=True, help='lolevel file name (to define grid)')
 
     p.add_argument('-y', '--year', help='overwrite year', type=int )
     args = p.parse_args()
