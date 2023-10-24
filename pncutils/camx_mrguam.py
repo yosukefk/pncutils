@@ -1,4 +1,5 @@
 import PseudoNetCDF as pnc
+import numpy as np
 
 class MrgUam:
 
@@ -9,7 +10,7 @@ class MrgUam:
         self.fo = self._mkheader()
         if self.fo is None:
             return
-        print(self.fo.dimensions)
+        #print(self.fo.dimensions)
 
 
         self._proc()
@@ -28,16 +29,36 @@ class MrgUam:
         f = [pnc.pncopen(str(_)) for _ in self.fnames]
 
         for ifile, ff in enumerate(f):
+
             for nm, var in ff.variables.items():
                 if 'VAR' in var.dimensions:
                     assert var.dimensions[1] == 'VAR'
-                    print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
-                    for j in range(len(self.fo.dimensions['VAR'])):
-                        self.fo.variables[nm][:, j, ...] = var[:, 0, ...]
+                    #print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
+
+                    if ifile == 0 or nm in ('TFLAG', 'ETFLAG'):
+                        # if first file, just copy
+                        # or for TFLAG, simply overwrite with each file's value (last file wins)
+                        for j in range(len(self.fo.dimensions['VAR'])):
+                            self.fo.variables[nm][:, j, ...] = var[:, 0, ...]
+                    else:
+                        # check if values are consistent
+                        for j in range(len(self.fo.dimensions['VAR'])):
+                            try:
+                                assert np.array_equal(self.fo.variables[nm][:, j, ...] , var[:, 0, ...])
+                            except AssertionError:
+                                print(nm, j,)
+                                raise
 
                 else:
-                    print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
-                    self.fo.variables[nm][...] = var[...]
+                    #print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
+                    if nm in self.varlists2:
+                        self.fo.variables[nm][...] += var[...]
+                    else:
+                        if ifile == 0:
+                            print('not in varilsts2', nm)
+                            self.fo.variables[nm][...] = var[...]
+                        else:
+                            assert np.array_equal(self.fo.variables[nm][...] , var[...])
 
     def _mkheader(self):
         # attributes from input files
@@ -55,9 +76,10 @@ class MrgUam:
                 for att in atts]
         varlists2 = varlists[0].copy()
         for vl in varlists[1:]:
-            print(varlists2)
+            #print(varlists2)
             varlists2 += [_ for _ in vl if _ not in varlists2]
-        print(varlists2)
+        #print(varlists2)
+        self.varlists2 = varlists2
 
         # create dimensions
         for k,v in f[0].dimensions.items():
@@ -67,7 +89,7 @@ class MrgUam:
                 n = v.size
             fo.createDimension(k, n)
         fo.dimensions['TSTEP'].setunlimited(True)
-        #print(fo.dimensions)
+        print(fo.dimensions)
 
         # copy attributes
         atts2 = atts[0].copy()
