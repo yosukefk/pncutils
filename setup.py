@@ -11,6 +11,11 @@ setup(
             'PseudoNetCDF', 
             ],
         entry_points={
-            'console_scripts': ['camx_el2lo=pncutils.camx_el2lo:main']
+            'console_scripts': [
+                'camx_el2lo=pncutils.camx_el2lo:main',
+                'camx_elwindow=pncutils.camx_elwindow:main',
+                'camx_ptsmrg=pncutils.camx_ptsmrg:main',
+                'camx_mrguam=pncutils.camx_mrguam:main',
+                ],
             },
         )
