@@ -127,5 +127,4 @@ def main():
     ptm = MrgUam(args.filenames, args.outname, )
 
 if __name__ == '__main__':
-    Warning('Need QA!')
     main()
