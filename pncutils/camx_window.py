@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import PseudoNetCDF as pnc
 import numpy as np
+import warnings
 
 class Window:
 
@@ -47,17 +48,32 @@ class Window:
                 continue
 
             if self.meshfac > 1:
-                raise NotImplementedError(f'meshfac > 1: {self.meshfac}') 
+                #raise NotImplementedError(f'meshfac > 1: {self.meshfac}') 
+
+                self.fo.variables[s][...] = 0.0
+                for m in range(self.rat):
+                    for n in range(self.rat):
+                        self.fo.variables[s][:, 0, 
+                                self.noff:(self.noff+self.ncel), 
+                                self.moff:(self.moff+self.mcel)] += (
+                                        v0[:, 0, 
+                                            self.joff+m:(self.joff+self.jcel+m):self.rat, 
+                                            self.ioff+m:(self.ioff+self.icel+m):self.rat]
+                                        )
+
+
+
+
             else:
-                val = v0[:, 0, self.joff:(self.joff+f1.NROWS//self.rat), 
-                        self.ioff:(self.ioff+f1.NCOLS//self.rat)]
+                val = v0[:, 0, self.joff:(self.joff+self.jcel), 
+                        self.ioff:(self.ioff+self.icel)]
                 val2 = np.repeat(
                         np.repeat(val, self.rat, axis=-1),
                         self.rat, axis=-2)
                 val2 *= (self.meshfac * self.meshfac)
 
 
-            self.fo.variables[s][:, 0, :, :] = val2
+                self.fo.variables[s][:, 0, :, :] = val2
 
     def _mkheader(self):
         # attributes from input files
@@ -81,6 +97,15 @@ class Window:
             raise RuntimeError('uneven ratio:', xc0, xc1, rat)
         meshfac = xc1 / xc0
 
+        # not sure about imeshfac in this method, i could have used irat?
+        if meshfac > 1:
+            # must be integer
+            imeshfac = int(meshfac)
+            if abs(imeshfac - meshfac)>.0001:
+                raise RuntimeError(f'non integer meshfac: {meshfac}')
+        else:
+            imeshfac = None
+
         # offset
         xo0, yo0 = f0.XORIG, f0.YORIG
         xo1, yo1 = f1.XORIG, f1.YORIG
@@ -88,22 +113,92 @@ class Window:
         xoff = xo1 - xo0
         yoff = yo1 - yo0
 
-        rioff = xoff / xc0
-        ioff = round(rioff)
-        if abs((rioff - ioff) / rioff) > 0.01:
-            raise RuntimeError('uneven xoff:', xo0, xo1, rioff)
+        if xoff >= 0:
+            rioff = xoff / xc0
+            ioff = round(rioff)
+            if abs(rioff - ioff) > 0.01:
+                raise RuntimeError(f'uneven xoff: {xo0}, {xo1}, {xoff}, {rioff}')
+            moff = None
+            mcel = f1.NCOLS
+            #icel = f0.NCOLS
+            ricel = mcel / irat
+            icel = round(ricel)
+            print(mcel, irat, ricel, icel)
+            assert abs(ricel - icel) < 0.01
+            assert icel <= f0.NCOLS
+        else:
+            for ioff in range(irat):
+                rmoff = -(xoff-ioff*xc0) / xc1
+                moff = round(rmoff)
+                if abs(rmoff - moff)  < 0.01:
+                    break
+                ioff = None
+            if ioff is None:
+                raise RuntimeError(f'uneven xoff: {xo0}, {xo1}, {xoff}, {rmoff}')
 
-        rjoff = yoff / xc0
-        joff = round(rjoff)
-        if abs((rjoff - joff) / rjoff) > 0.01:
-            raise RuntimeError('uneven yoff:', yo0, yo1, rjoff)
+            for ii in range(irat):
+                icel = f0.NCOLS -ioff - ii
+                rmcel = icel / irat
+                mcel = round(rmcel)
+                if abs(rmcel - mcel) < 0.01:
+                    break
+                icel = None
+            if icel is None:
+                raise RuntimeError(f'uneven xend: ')
+
+
+
+        if yoff >= 0:
+            rjoff = yoff / xc0
+            joff = round(rjoff)
+            if abs(rjoff - joff) > 0.01:
+                raise RuntimeError(f'uneven yoff: {yo0}, {yo1}, {rjoff}')
+            noff = None
+            ncel = f1.NROWS
+            #jcel = f0.NROWS
+            rjcel = ncel / irat
+            jcel = round(rjcel)
+            assert abs(rjcel - jcel) < 0.01
+            assert jcel <= f0.NROWS
+        else:
+            for joff in range(irat):
+                rnoff = -(yoff-joff*xc0) / xc1
+                noff = round(rnoff)
+                if abs(rnoff - noff)  < 0.01:
+                    break
+                joff = None
+            if joff is None:
+                raise RuntimeError(f'uneven yoff: {yo0}, {yo1}, {rnoff}')
+
+            for jj in range(irat):
+                jcel = f0.NROWS -joff - jj
+                rncel = jcel / irat
+                ncel = round(rncel)
+                if abs(rncel - ncel) < 0.01:
+                    break
+                jcel = None
+            if jcel is None:
+                raise RuntimeError(f'uneven yend:')
+
 
         self.meshfac = meshfac
         self.rat = irat
         self.ioff = ioff
         self.joff = joff
+        self.moff = moff
+        self.noff = noff
 
-        print(f'meshfac: {meshfac}\nrat: {rat}\nioff: {ioff}\njoff: {joff}')
+        self.icel = icel
+        self.jcel = jcel
+        self.mcel = mcel
+        self.ncel = ncel
+
+        print(f'f0: NCOLS: {f0.NCOLS}, NROWS: {f0.NROWS}')
+        print(f'f1: NCOLS: {f1.NCOLS}, NROWS: {f1.NROWS}')
+        print()
+        print(f'meshfac: {meshfac}, rat: {rat}\n')
+        print(f'moff: {moff}, noff: {noff}\nioff: {ioff}, joff: {joff}\n')
+        print(f'mcel: {mcel}, ncel: {ncel}\nicel: {icel}, jcel: {jcel}\n')
 
 
         # create new dataset
@@ -135,6 +230,7 @@ class Window:
         names0 = ['X', 'Y', 'TFLAG', 'ETFLAG', 'longitude', 'latitude'] 
 
         myspecies = [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
+        myspecies = [_ for _ in myspecies if _ not in names0]
         if self.species is None:
             self.species = myspecies
         else:
