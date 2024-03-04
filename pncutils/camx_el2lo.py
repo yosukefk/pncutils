@@ -58,6 +58,10 @@ class El2lo:
         self.jdx = jdx
         self.oob = oob
 
+        self.ndx = idx + jdx * atts['NCOLS']
+        self.ndx[oob] = -999999
+
+
         #species = [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
         #for s in species:
         for s in self.species:
@@ -66,9 +70,19 @@ class El2lo:
                 v0 = f0.variables[s]
             except KeyError:
                 continue
-            for c in range(v0.shape[-1]):
-                if oob[c]: continue
-                self.fo.variables[s][:, 0, jdx[c], idx[c]] += v0[:, c]
+            # this is very slow
+            #for c in range(v0.shape[-1]):
+            #    if oob[c]: continue
+            #    self.fo.variables[s][:, 0, jdx[c], idx[c]] += v0[:, c]
+
+            # slightly faster than above...
+            # does np.take_along_axis make this faster...?
+            for j in range(atts['NROWS']):
+                for i in range(atts['NCOLS']):
+                    n = i + j * atts['NCOLS']
+                    self.fo.variables[s][:, 0, j, i] = v0[:, self.ndx == n].sum(axis=1)
+
+
 
 
 
