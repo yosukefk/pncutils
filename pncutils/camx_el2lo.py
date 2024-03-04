@@ -131,6 +131,7 @@ class El2lo:
         names0 = ['X', 'Y', 'TFLAG', 'ETFLAG', 'longitude', 'latitude'] 
 
         myspecies = [atts['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(atts['VAR-LIST']) // 16)]
+        myspecies = [_ for _ in myspecies if _ not in ('flowrate', 'plumerise', 'plume_bottom', 'plume_top')]
         if self.species is None:
             self.species = myspecies
         else:
