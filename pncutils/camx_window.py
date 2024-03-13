@@ -289,8 +289,9 @@ def main():
 
     if args.outname is None:
         args.outname = args.filename[:-3] + '.window.nc'
+    #print args.species
 
-    wn = Window(args.filename, args.loname, args.outname)
+    wn = Window(args.filename, args.loname, args.outname, args.species)
 
 if __name__ == '__main__':
     main()
