@@ -17,6 +17,7 @@ setup(
                 'camx_ptsmrg=pncutils.camx_ptsmrg:main',
                 'camx_mrguam=pncutils.camx_mrguam:main',
                 'camx_window=pncutils.camx_window:main',
+                'camx_fixlo=pncutils.camx_fixlo:main',
                 ],
             },
         )
