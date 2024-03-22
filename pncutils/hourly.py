@@ -4,17 +4,22 @@ import numpy as np
 import os, re
 
 class Hourly:
-    def __init__(self, fnames, oname=None, spc='PM25'):
+    def __init__(self, fnames, oname=None, spc='PM25', raw_spc=None):
         """Hourly output joined into one
 
         :param fnames: list of input file names
         :param oname: (optional) output file name
         :param spc: (optional) output species name
+        :param raw_spc: list of species (or function to find species), and sum of them are used as the output species
         """
 
         self.fnames = fnames
         self.spc = spc
-        self.raw_spc = [spc]
+        if not raw_spc:
+            self.raw_spc = [spc]
+        else:
+            self.raw_spc = raw_spc
+            
 
         not_file = [_ for _ in fnames if not os.path.exists]
         if not_file:
@@ -42,13 +47,23 @@ class Hourly:
             f = pnc.pncopen(fn)
             print(f.SDATE, i)
 
-            for j, s in enumerate(self.raw_spc):
+            
+            if callable(self.raw_spc):
+                lst = [_ for _ in f.variables if self.raw_spc(_)]
+            else:
+                lst = self.raw_spc
+            print(lst)
+
+
+
+            for j, s in enumerate(lst):
                 if j == 0:
                     a = np.array(f.variables[s])
                 else:
                     a += np.array(f.variables[s])
 
             # write
+            if a.shape[0] < 24: break
             self.fo.variables[self.spc][i*24:(i+1)*24, ...] = a[...]
 
             self.fo.updatetflag()
@@ -93,8 +108,12 @@ class Hourly:
             if i < 4:
                 v[...] = v0[...]
 
-        v0 = f0.variables[self.raw_spc[0]]
+        if callable(self.raw_spc):
+            lst = [_ for _ in f0.variables if self.raw_spc(_)]
+        else:
+            lst = self.raw_spc
+        v0 = f0.variables[lst[0]]
         v = fo.createVariable(self.spc, 'f', v0.dimensions)
-        v.setncatts({k: re.sub(self.raw_spc[0], self.spc, v) for k, v in
+        v.setncatts({k: re.sub(lst[0], self.spc, v) for k, v in
                      v0.__dict__.items()})
         return fo
