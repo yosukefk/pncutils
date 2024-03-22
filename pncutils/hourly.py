@@ -3,6 +3,7 @@ import PseudoNetCDF as pnc
 import numpy as np
 import os, re
 
+
 class Hourly:
     def __init__(self, fnames, oname=None, spc='PM25', raw_spc=None):
         """Hourly output joined into one
