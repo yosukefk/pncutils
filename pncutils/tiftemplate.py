@@ -55,6 +55,7 @@ class TifTemplate:
         if oname is None:
             of = tempfile.NamedTemporaryFile()
             oname = of.name
+        oname = str(oname)
         self.dtype = dtype
 
         ds = pnc.pncopen(self.fname)
