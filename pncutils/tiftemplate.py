@@ -40,7 +40,7 @@ class TifTemplate:
 
         self.drv = gdal.GetDriverByName('GTiff')
 
-    def mktif(self, oname=None, arr=None, dtype=None):
+    def mktif(self, oname=None, arr=None, dtype=None, nodatavalue = None):
         '''create tif file based on template
 
         :rtype: gdal.Dataset
@@ -77,6 +77,10 @@ class TifTemplate:
         ds.SetProjection(srs.ExportToWkt())
 
         if not arr is None:
+            bnd = ds.GetRasterBand(1)
+            if not nodatavalue is None:
+                bnd.SetNoDataValue(nodatavalue)
+
             ds.GetRasterBand(1).WriteArray(arr)
         ds.FlushCache()
         return ds
