@@ -1,2 +1,2 @@
 # pncutils
-PsudeoNetCDF based utilities
+[PsudeoNetCDF](https://github.com/barronh/pseudonetcdf) based utilities
