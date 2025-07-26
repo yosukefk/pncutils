@@ -1,4 +1,4 @@
-import hourly as hrly
+from . import hourly as hrly
 import PseudoNetCDF as pnc
 import numpy as np
 from pathlib import Path
@@ -15,22 +15,23 @@ class Daily:
             if fnames is None:
                 raise RuntimeError('neither hourly_name or fnames is spcified')
             self.fnames = fnames
+            self.hourly = hrly.Hourly(fnames, oname=None, spc=hourly_spc, raw_spc=raw_spc)
         else:
             if Path(hourly_name).is_file():
                 # read from preprocessed hourly file
-                self.hourly = pnc.pncopen(hourly_name)
+                self.hourly = hrly.Hourly(oname=str(hourly_name))
             else:
                 # need to generate hourly dataset
                 if fnames is None:
                     raise RuntimeError('hourly_name doesnt exist and fnames is spcified')
                 else:
-                    self.hourly = hrly.Hourly(fnames, oname=None, spc=spc, raw_spc=raw_spc)
+                    self.hourly = hrly.Hourly(fnames, oname=None, spc=hourly_spc, raw_spc=raw_spc)
 
         # timezone
-        if itzon_use is None: itzon_use = self.hourly.ITZON
+        if itzon_use is None: itzon_use = self.hourly.fo.ITZON
         self.itzon_use = itzon_use
-        print(self.hourly.ITZON, itzon_use)
-        self.tzoffset = self.hourly.ITZON - itzon_use
+        print(self.hourly.fo.ITZON, itzon_use)
+        self.tzoffset = self.hourly.fo.ITZON - itzon_use
 
         self.spc = spc
         self.hourly_spc = hourly_spc
@@ -39,10 +40,10 @@ class Daily:
         self.fo = self._mkheader()
         self._proc()
         if oname:
-            self.save(oname)
+            self.save(str(oname))
 
     def _mkheader(self):
-        atts = self.hourly.getncatts()
+        atts = self.hourly.fo.getncatts()
         if 'IOAPI_VERSION' not in atts:
             # its not IOAPI file
             raise ValueError(f'not having IOAPI as global attr: {self.hourly}')
@@ -52,15 +53,21 @@ class Daily:
 
 
         # copy the dimensions
-        for k, v in self.hourly.dimensions.items():
+        for k, v in self.hourly.fo.dimensions.items():
+            try:
+                siz = v.size
+            except:
+                siz = len(v)
+            try: nam = v.name
+            except: nam = k
             if k == 'TSTEP':
-                self.ndays = (v.size - abs(self.tzoffset)) // 24
+                self.ndays = (siz - abs(self.tzoffset)) // 24
                 n = self.ndays
             elif k == 'VAR':
                 n = 1
             else:
-                n = v.size
-            fo.createDimension(v.name, n)
+                n = siz
+            fo.createDimension(nam, n)
         fo.dimensions['TSTEP'].setunlimited(True)
 
         # set global attr
@@ -73,25 +80,25 @@ class Daily:
         # make variables
         fo.updatetflag()
         for i, nm in enumerate(['X', 'Y', 'longitude', 'latitude', ]):
-            v0 = self.hourly.variables[nm]
+            v0 = self.hourly.fo.variables[nm]
 
-            v = fo.createVariable(v0.name, v0.dtype.kind, v0.dimensions)
+            v = fo.createVariable(nm, v0.dtype.kind, v0.dimensions)
             v.setncatts(v0.__dict__)
             if i < 4:
                 v[...] = v0[...]
 
-        v0 = self.hourly.variables[self.hourly_spc]
+        v0 = self.hourly.fo.variables[self.hourly_spc]
         v = fo.createVariable(self.spc, 'f', v0.dimensions)
         v.setncatts({k: re.sub(self.hourly_spc, self.spc, v) for k, v in
-                     v0.__dict__.items()})
+                     v0.__dict__.items() if isinstance(v, str)})
         return fo
 
     def _proc(self):
         if self.tzoffset <= 0:
-            self.buf = self.hourly.variables[self.hourly_spc][-self.tzoffset:, ...]
+            self.buf = self.hourly.fo.variables[self.hourly_spc][-self.tzoffset:, ...]
             dayoffset = 0
         else:
-            self.buf = self.hourly.variables[self.hourly_spc][24-self.tzoffset:, ...]
+            self.buf = self.hourly.fo.variables[self.hourly_spc][24-self.tzoffset:, ...]
             self.fo.variables[self.spc][0, ...] = np.nan
             self.fo.updatetflag()
             dayoffset = 1
@@ -109,7 +116,7 @@ class Daily:
 
         :param oname: output file name
         """
-        self.fo.save(oname)
+        self.fo.save(str(oname))
 
 
 class MDA8O3(Daily):
@@ -118,9 +125,9 @@ class MDA8O3(Daily):
                 itzon_use=itzon_use, spc='MDA8O3', hourly_spc='O3', fnc_dayagg=calc_mda8)
 
 class A24PM25(Daily):
-    def __init__(self, fnames=None, hourly_name=None, oname=None, itzon_use=None):
+    def __init__(self, fnames=None, hourly_name=None, oname=None, itzon_use=None, raw_spc=None):
         super().__init__(fnames=fnames, hourly_name=hourly_name, oname=oname,  
-                itzon_use=itzon_use, spc='A24PM25', hourly_spc='PM25', fnc_dayagg=calc_a24) 
+                itzon_use=itzon_use, spc='A24PM25', hourly_spc='PM25', fnc_dayagg=calc_a24, raw_spc=raw_spc) 
         
 def calc_a24(x):
     shp = list(x.shape)
@@ -128,7 +135,7 @@ def calc_a24(x):
     out = np.empty(shp) 
     out[-1, ...] = np.nan
     for i in range(shp[0]):
-        out[i, ...] = a8[(24*i):(24*(i+1))].mean(axis=0)
+        out[i, ...] = x[(24*i):(24*(i+1))].mean(axis=0)
     return out
 
 
