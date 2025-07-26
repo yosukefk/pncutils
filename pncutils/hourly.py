@@ -6,7 +6,7 @@ import os, re
 
 class Hourly:
 
-    def from_outputs(self, oname):
+    def _from_outputs(self, oname):
         self.oname = oname
         self.fo = pnc.pncopen(self.oname)
 
@@ -27,7 +27,9 @@ class Hourly:
 
         if self.fnames is None:
             # bootleg from output
-            self._from_outputs(self.oname)
+            if oname is None:
+                raise RuntimeError('no fnames, no oname')
+            self._from_outputs(oname)
         else:
             self._init(fnames, oname, spc, raw_spc, )
 
