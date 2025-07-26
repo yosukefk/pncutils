@@ -7,7 +7,8 @@ import re
 
 class Daily:
 
-    def __init__(self, fnames=None, hourly_name=None, oname=None, spc='MDA8O3', hourly_spc=None, raw_spc=None, fnc_dayagg=None, itzon_use=None):
+    def __init__(self, fnames=None, hourly_name=None, oname=None, 
+            spc='MDA8O3', hourly_spc=None, raw_spc=None, fnc_dayagg=None, itzon_use=None):
 
         # grab data
         if hourly_name is None:
@@ -115,6 +116,21 @@ class MDA8O3(Daily):
     def __init__(self, fnames=None, hourly_name=None, oname=None, itzon_use=None):
         super().__init__(fnames=fnames, hourly_name=hourly_name, oname=oname,  
                 itzon_use=itzon_use, spc='MDA8O3', hourly_spc='O3', fnc_dayagg=calc_mda8)
+
+class A24PM25(Daily):
+    def __init__(self, fnames=None, hourly_name=None, oname=None, itzon_use=None):
+        super().__init__(fnames=fnames, hourly_name=hourly_name, oname=oname,  
+                itzon_use=itzon_use, spc='A24PM25', hourly_spc='PM25', fnc_dayagg=calc_a24) 
+        
+def calc_a24(x):
+    shp = list(x.shape)
+    shp[0] = ( shp[0]  - 1 ) // 24 + 1
+    out = np.empty(shp) 
+    out[-1, ...] = np.nan
+    for i in range(shp[0]):
+        out[i, ...] = a8[(24*i):(24*(i+1))].mean(axis=0)
+    return out
+
 
 def calc_mda8(x):
     a8 = moving_average(x, 8)
