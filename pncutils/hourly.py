@@ -5,7 +5,34 @@ import os, re
 
 
 class Hourly:
-    def __init__(self, fnames, oname=None, spc='PM25', raw_spc=None):
+
+    def from_outputs(self, oname):
+        self.oname = oname
+        self.fo = pnc.pncopen(self.oname)
+
+    def __init__(self, fnames=None, oname=None, spc='PM25', raw_spc=None):
+        """Hourly output joined into one
+
+        :param fnames: list of input file names
+        :param oname: (optional) output file name
+        :param spc: (optional) output species name
+        :param raw_spc: list of species (or function to find species), and sum of them are used as the output species
+        """
+        self.fnames = fnames
+        self.spc = spc
+        if not raw_spc:
+            self.raw_spc = [spc]
+        else:
+            self.raw_spc = raw_spc
+
+        if self.fnames is None:
+            # bootleg from output
+            self._from_outputs(self.oname)
+        else:
+            self._init(fnames, oname, spc, raw_spc, )
+
+
+    def _init(self, fnames, oname, spc, raw_spc):
         """Hourly output joined into one
 
         :param fnames: list of input file names
@@ -70,6 +97,8 @@ class Hourly:
             self.fo.updatetflag()
 
             i += 1
+        f.close()
+        del f
 
     def _mkheader(self):
 
@@ -117,4 +146,6 @@ class Hourly:
         v = fo.createVariable(self.spc, 'f', v0.dimensions)
         v.setncatts({k: re.sub(lst[0], self.spc, v) for k, v in
                      v0.__dict__.items()})
+        f0.close()
+        del f0
         return fo
