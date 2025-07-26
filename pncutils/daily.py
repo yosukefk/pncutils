@@ -120,7 +120,7 @@ class Daily:
 
 
 class MDA8O3(Daily):
-    def __init__(self, fnames=None, hourly_name=None, oname=None, itzon_use=None):
+    def __init__(self, fnames=None, hourly_name=None, oname=None, itzon_use=None, raw_spc=None):
         super().__init__(fnames=fnames, hourly_name=hourly_name, oname=oname,  
                 itzon_use=itzon_use, spc='MDA8O3', hourly_spc='O3', fnc_dayagg=calc_mda8)
 
