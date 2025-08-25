@@ -14,6 +14,7 @@ setup(
             'console_scripts': [
                 'camx_el2lo=pncutils.camx_el2lo:main',
                 'camx_elwindow=pncutils.camx_elwindow:main',
+                'camx_elpuchhole=pncutils.camx_elpuchhole:main',
                 'camx_ptsmrg=pncutils.camx_ptsmrg:main',
                 'camx_mrguam=pncutils.camx_mrguam:main',
                 'camx_window=pncutils.camx_window:main',
