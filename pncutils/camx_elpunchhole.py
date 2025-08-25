@@ -6,7 +6,7 @@ import PseudoNetCDF as pnc
 import warnings
 
 
-class ElWindow:
+class ElPunchHole:
 
     def __init__(self, fname, loname, oname=None, species=None, year=None):
         """camx elevated to lolevel
@@ -23,6 +23,7 @@ class ElWindow:
         self.year = year
 
         self.fo = self._mkheader()
+        #import pdb; pdb.set_trace()
         if self.fo is None:
             return
 
@@ -96,7 +97,7 @@ class ElWindow:
         x = f0.variables['xcoord']
         y = f0.variables['ycoord']
 
-        myfilter = (
+        myfilter = ~(
                 (x[...] >= f1.XORIG) & 
                 (x[...] <= (f1.XORIG+f1.XCELL*f1.NCOLS)) & 
                 (y[...]  >= f1.YORIG) & 
@@ -110,7 +111,7 @@ class ElWindow:
                 f1.XORIG+f1.XCELL*f1.NCOLS, 
                 f1.YORIG, 
                 f1.YORIG+f1.YCELL*f1.NROWS, )
-            raise RuntimeError('no stack in window')
+            raise RuntimeError('no stack after punched hole')
 
         self.myfilter = myfilter
         self.nstk = nstk
@@ -130,9 +131,6 @@ class ElWindow:
 
         # copy attributes
         atts = atts0.copy()
-        atts.update({k:v for k,v in atts1.items() if k in 
-            ('XORIG', 'YORIG', 'XCELL', 'YCELL', 'NCOLS', 'NROWS',
-                    )})
 
         if self.year is not None:
             print(atts['SDATE'])
@@ -183,7 +181,7 @@ def tester():
     flo = 'camx_cb6_ei_lo_loptus.2019_day.txo3.bc19.negu_2019_v2.txs_4km.nc'
     fout = 'elwindow.nc'
 
-    lo = ElWindow(fin, flo, fout)
+    lo = ElPunchHole(fin, flo, fout)
     return lo
 
 #lo = tester()
@@ -206,10 +204,10 @@ def main():
         args.species = re.split('[, ] *', args.species)
 
     if args.outname is None:
-        args.outname = args.filename[:-3] + '.elwindow.nc'
+        args.outname = args.filename[:-3] + '.elpunchhole.nc'
 
 
-    lo = ElWindow(args.filename, args.loname, args.outname, args.species, year=args.year)
+    lo = ElPunchHole(args.filename, args.loname, args.outname, args.species, year=args.year)
 
 
 if __name__ == '__main__':
