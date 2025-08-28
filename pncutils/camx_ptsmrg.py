@@ -2,7 +2,8 @@
 
 
 import PseudoNetCDF as pnc
-from itertools import chain
+import numpy as np
+
 
 class PtsMrg:
     def __init__(self, fnames, oname):
@@ -45,15 +46,26 @@ class PtsMrg:
                     if len(var.shape) == 1:
                         self.fo.variables[nm][ipos:(ipos+len(ff.dimensions['COL']))] = var[...]
                     elif len(var.shape) == 2:
-                        self.fo.variables[nm][:, ipos:(ipos+len(ff.dimensions['COL']))] = var[...]
+                        if self.fo.variables[nm].shape[0] > 0 and self.fo.variables[nm].shape[0] != var.shape[0]:
+                            self.fo.variables[nm][:24, ipos:(ipos+len(ff.dimensions['COL']))] = var[:24, ...]
+                        else:
+                            self.fo.variables[nm][:, ipos:(ipos+len(ff.dimensions['COL']))] = var[...]
                     else:
                         raise
 
                 elif 'VAR' in var.dimensions:
                     assert var.dimensions[1] == 'VAR'
                     print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
+                    #import pdb; pdb.set_trace()
                     for j in range(len(self.fo.dimensions['VAR'])):
-                        self.fo.variables[nm][:, j, ...] = var[:, 0, ...]
+                        if self.ignore_last_tstep:
+                            if self.fo.variables[nm].shape[0] > 0 and self.fo.variables[nm].shape[0] != var.shape[0]:
+
+                                self.fo.variables[nm][:24, j, ...] = var[:24, 0, ...]
+                            else:
+                                self.fo.variables[nm][:, j, ...] = var[:, 0, ...]
+                        else:
+                            self.fo.variables[nm][:, j, ...] = var[:, 0, ...]
 
                 else:
                     if nm in processed: continue
@@ -69,10 +81,27 @@ class PtsMrg:
         f = [pnc.pncopen(str(_)) for _ in self.fnames]
         atts = [_.getncatts() for _ in f]
 
+        # TODO check compatibility
+        # TSTEP
+        ntims = [len(_.dimensions['TSTEP']) for _ in f]
+        #import pdb; pdb.set_trace()
+        self.ignore_last_tstep = False
+        if all(_ == ntims[0] for _ in  ntims):
+            # ok
+            pass
+        elif all(_ in (24, 25) for _ in ntims) :
+            # special case
+            # only if files are either 24 and 25, and time of day are 0-23 or 0-24
+            #tflags = [np.array(_.variables['TFLAG'][:,0,1]) for _ in f]
+            self.ignore_last_tstep = True
+            
+
+        else:
+            raise ValueError(f'ntim differs: {ntims}')
+
+
         # create new dataset
         fo = pnc.cmaqfiles.ioapi_base()
-
-        # TODO check compatibility
 
         # total # of stacks
         #print([len(_.dimensions['COL']) for _ in f])
@@ -85,9 +114,9 @@ class PtsMrg:
                 for att in atts]
         varlists2 = varlists[0].copy()
         for vl in varlists[1:]:
-            print(varlists2)
+            #print(varlists2)
             varlists2 += [_ for _ in vl if _ not in varlists2]
-        print(varlists2)
+        #print(varlists2)
 
         # create dimensions
         for k,v in f[0].dimensions.items():
@@ -123,8 +152,7 @@ class PtsMrg:
 
         # createVariable poplulates VAR-LIST, VAR, NVARS
         fo.setncatts({k:v for k,v in atts2.items() if k in ('VAR-LIST', 'NVARS')})
-        attso = fo.getncatts()
-        fo.save('xxx3.nc')
+
         return fo
 
 
