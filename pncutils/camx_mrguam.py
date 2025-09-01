@@ -1,8 +1,11 @@
+# merge gridded emission files
+
+
 import PseudoNetCDF as pnc
 import numpy as np
 
-class MrgUam:
 
+class MrgUam:
     def __init__(self, fnames, oname):
         self.fnames = fnames
         self.oname = oname
@@ -29,7 +32,6 @@ class MrgUam:
         f = [pnc.pncopen(str(_)) for _ in self.fnames]
 
         for ifile, ff in enumerate(f):
-
             for nm, var in ff.variables.items():
                 if 'VAR' in var.dimensions:
                     assert var.dimensions[1] == 'VAR'
@@ -55,7 +57,7 @@ class MrgUam:
                         self.fo.variables[nm][...] += var[...]
                     else:
                         if ifile == 0:
-                            print('not in varilsts2', nm)
+                            print('not in varlists2', nm)
                             self.fo.variables[nm][...] = var[...]
                         else:
                             assert np.array_equal(self.fo.variables[nm][...] , var[...])
@@ -65,12 +67,27 @@ class MrgUam:
         f = [pnc.pncopen(str(_)) for _ in self.fnames]
         atts = [_.getncatts() for _ in f]
 
+        # check compatibility of TSTEP
+        ntims = [len(_.dimensions['TSTEP']) for _ in f]
+        self.ignore_last_tstep = False
+        if all(_ == ntims[0] for _ in  ntims):
+            # ok
+            pass
+        elif all(_ in (24, 25) for _ in ntims) :
+            # special case
+            # only if files are either 24 and 25, and time of day are 0-23 or 0-24
+            #tflags = [np.array(_.variables['TFLAG'][:,0,1]) for _ in f]
+            self.ignore_last_tstep = True
+            
+
+        else:
+            raise ValueError(f'ntim differs: {ntims}')
+
+
         # create new dataset
         fo = pnc.cmaqfiles.ioapi_base()
 
-        # TODO check compatibility
-
-        # species mapping
+        # list of all species
         varlists = [
                 [att['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(att['VAR-LIST']) // 16)] 
                 for att in atts]
@@ -89,7 +106,7 @@ class MrgUam:
                 n = v.size
             fo.createDimension(k, n)
         fo.dimensions['TSTEP'].setunlimited(True)
-        print(fo.dimensions)
+        #print(fo.dimensions)
 
         # copy attributes
         atts2 = atts[0].copy()
@@ -97,7 +114,6 @@ class MrgUam:
         atts2['VAR-LIST'] = ''.join([_.ljust(16) for _ in varlists2])
 
         fo.setncatts(atts2)
-
 
         # make variables
         fo.updatetflag(startdate=f[0].getTimes()[0])
@@ -111,10 +127,14 @@ class MrgUam:
                 v.setncatts(var.__dict__)
 
 
+
         # createVariable poplulates VAR-LIST, VAR, NVARS
         fo.setncatts({k:v for k,v in atts2.items() if k in ('VAR-LIST', 'NVARS')})
 
         return fo
+
+
+
 
 def main():
     import argparse
