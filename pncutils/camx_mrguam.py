@@ -2,13 +2,15 @@
 
 
 import PseudoNetCDF as pnc
-import numpy as np
+import pandas as pd, numpy as np
+import warnings
 
 
 class MrgUam:
-    def __init__(self, fnames, oname):
+    def __init__(self, fnames, oname, summary=None):
         self.fnames = fnames
         self.oname = oname
+        self.summary = []
 
         self.fo = self._mkheader()
         if self.fo is None:
@@ -20,6 +22,10 @@ class MrgUam:
 
         if oname:
             self.save(oname)
+        if summary is not None:
+            df_summary=pd.DataFrame(self.summary)
+            df_summary.to_csv(summary)
+            
 
     def save(self, oname):
         """save
@@ -55,10 +61,24 @@ class MrgUam:
                     #print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
                     if nm in self.varlists2:
                         self.fo.variables[nm][...] += var[...]
+                        self.summary.append({
+                            'fname': self.fnames[ifile],
+                            'spc': nm,
+                            'shp': var.shape,
+                            'units': var.units,
+                            'sum': var[...].sum(),
+                            })
                     else:
                         if ifile == 0:
-                            print('not in varlists2', nm)
+                            warnings.warn(f'not in varlists2: {nm}, fname = {self.fnames[ifile]}')
                             self.fo.variables[nm][...] = var[...]
+                            self.summary.append({
+                                'fname': self.fnames[ifile],
+                                'spc': nm,
+                                'shp': var.shape,
+                                'units': var.units,
+                                'sum': var[...].sum(),
+                                })
                         else:
                             assert np.array_equal(self.fo.variables[nm][...] , var[...])
 
@@ -141,10 +161,11 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('filenames',  nargs='+', help='elevated emission file name')
     p.add_argument('-o', '--outname', help='output file name')
+    p.add_argument('-s', '--summary', help='summary csv file name')
 
     args = p.parse_args()
 
-    ptm = MrgUam(args.filenames, args.outname, )
+    ptm = MrgUam(args.filenames, args.outname, args.summary)
 
 if __name__ == '__main__':
     main()
