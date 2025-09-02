@@ -61,23 +61,37 @@ class MrgUam:
                     #print('\n', nm, var.shape, self.fo.variables[nm].shape, '\n')
                     if nm in self.varlists2:
                         self.fo.variables[nm][...] += var[...]
+
+                        v = self.fo.variables[nm]
+                        if v.units.endswith('hr-1') and v.shape[0] == 25:
+                            mysum = var[:24, ...].sum()
+                        else:
+                            mysum = var[...].sum()
+
                         self.summary.append({
                             'fname': self.fnames[ifile],
                             'spc': nm,
                             'shp': var.shape,
                             'units': var.units,
-                            'sum': var[...].sum(),
+                            'sum': mysum,
                             })
                     else:
                         if ifile == 0:
                             warnings.warn(f'not in varlists2: {nm}, fname = {self.fnames[ifile]}')
                             self.fo.variables[nm][...] = var[...]
+
+                            v = self.fo.variables[nm]
+                            if v.units.endswith('hr-1') and v.shape[0] == 25:
+                                mysum = var[:24, ...].sum()
+                            else:
+                                mysum = var[...].sum()
+
                             self.summary.append({
                                 'fname': self.fnames[ifile],
                                 'spc': nm,
                                 'shp': var.shape,
                                 'units': var.units,
-                                'sum': var[...].sum(),
+                                'sum': mysum,
                                 })
                         else:
                             assert np.array_equal(self.fo.variables[nm][...] , var[...])
@@ -98,15 +112,9 @@ class MrgUam:
             # only if files are either 24 and 25, and time of day are 0-23 or 0-24
             #tflags = [np.array(_.variables['TFLAG'][:,0,1]) for _ in f]
             self.ignore_last_tstep = True
-            
-
         else:
             raise ValueError(f'ntim differs: {ntims}')
-
-
-        # create new dataset
-        fo = pnc.cmaqfiles.ioapi_base()
-
+        
         # list of all species
         varlists = [
                 [att['VAR-LIST'][_*16:(_+1)*16].strip() for _ in range(len(att['VAR-LIST']) // 16)] 
@@ -117,6 +125,29 @@ class MrgUam:
             varlists2 += [_ for _ in vl if _ not in varlists2]
         #print(varlists2)
         self.varlists2 = varlists2
+
+        # check compatibility of species
+        for v in varlists2:
+            units = {self.fnames[ifile]:ff.variables[v].units for ifile, ff in enumerate(f) if v in ff.variables}
+            shapes = {self.fnames[ifile]:ff.variables[v].shape for ifile, ff in enumerate(f) if v in ff.variables}
+
+            if not all(u == units[self.fnames[0]] for u in units.values()):
+                unique_units = list(set(units.values()))
+                units_and_files = {uu: [fn for  fn,un in units.items() if un==uu] for uu in unique_units}
+
+                raise ValueError('Inconsitent Units: {units_and_files}')
+
+            if not all(shp == shapes[self.fnames[0]] for shp in shapes.values()):
+                unique_shapes = list(set(shapes.values()))
+                shapes_and_files = {shp: [fn for  fn,un in shapes.items() if shp==us] for us in unique_shapes}
+
+                raise ValueError('Inconsitent Shapes: {shapes_and_files}')
+            print(f'{v}: units = {units[self.fnames[0]]}, shape = {shapes[self.fnames[0]]}')
+
+
+
+        # create new dataset
+        fo = pnc.cmaqfiles.ioapi_base()
 
         # create dimensions
         for k,v in f[0].dimensions.items():
