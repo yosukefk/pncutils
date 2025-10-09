@@ -131,18 +131,21 @@ class MrgUam:
             units = {self.fnames[ifile]:ff.variables[v].units for ifile, ff in enumerate(f) if v in ff.variables}
             shapes = {self.fnames[ifile]:ff.variables[v].shape for ifile, ff in enumerate(f) if v in ff.variables}
 
-            if not all(u == units[self.fnames[0]] for u in units.values()):
+            units0 = next(iter(units.values())) 
+            shape0 = next(iter(shapes.values())) 
+
+            if not all(u == units0 for u in units.values()):
                 unique_units = list(set(units.values()))
                 units_and_files = {uu: [fn for  fn,un in units.items() if un==uu] for uu in unique_units}
 
                 raise ValueError('Inconsitent Units: {units_and_files}')
 
-            if not all(shp == shapes[self.fnames[0]] for shp in shapes.values()):
+            if not all(shp == shape0 for shp in shapes.values()):
                 unique_shapes = list(set(shapes.values()))
                 shapes_and_files = {shp: [fn for  fn,un in shapes.items() if shp==us] for us in unique_shapes}
 
                 raise ValueError('Inconsitent Shapes: {shapes_and_files}')
-            print(f'{v}: units = {units[self.fnames[0]]}, shape = {shapes[self.fnames[0]]}')
+            print(f'{v}: units = {units0}, shape = {shape0}')
 
 
 
