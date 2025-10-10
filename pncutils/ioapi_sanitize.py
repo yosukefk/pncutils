@@ -8,6 +8,9 @@ Features
     sanitize_inplace(nc, include_statics=False) -> report dict
 - CLI copy-cleaner (never modifies input file):
     python ioapi_sanitize.py in.nc out.nc [--include-statics] [--dry-run] [--strict]
+- Convenience:
+    sanitize_file(infile, outfile, ...)
+    sanitize(obj_or_path, inplace=False, ...)
 
 Rules
 - Data vars = 4D (TSTEP, LAY, ROW, COL) OR 3D (TSTEP, ROW, COL), excluding TFLAG
@@ -26,6 +29,9 @@ from typing import List, Dict, Any
 import sys
 import argparse
 import numpy as np
+import os
+import shutil
+import tempfile
 
 try:
     from netCDF4 import Dataset  # for CLI
@@ -169,17 +175,14 @@ def _finalize_metadata(dst, data_vars: List[str], src_for_tflag=None):
             tf_dst = dst.variables[tn]
         tfs_dst[tn] = tf_dst
 
-    print(tfs_dst)
     # Try to preserve from source
     src = src_for_tflag or dst
     tf_ok = False
-    for tn in TFLAG_NAMES[::-1]:
-        print(tn)
+    for tn in TFLAG_NAMES:
         tf_dst = tfs_dst.get(tn, None)
         if not tf_dst: continue
         if tn in getattr(src, "variables", {}):
             tf_src = src.variables[tn]
-            print(tf_src)
             dims_src = getattr(tf_src, "dimensions", ())
             arr = None
             if len(dims_src) >= 3 and dims_src[:3] == ("TSTEP", "VAR", "DATE-TIME"):
@@ -190,7 +193,6 @@ def _finalize_metadata(dst, data_vars: List[str], src_for_tflag=None):
                 if tstep_dst is None or arr.shape[0] != tstep_dst:
                     # different TSTEP length -> cannot safely preserve
                     tf_dst[:] = 0
-                    return
                 first = arr[:, 0, :]
                 equal_all = np.all(arr == first[:, None, :])
                 if not equal_all:
@@ -202,6 +204,8 @@ def _finalize_metadata(dst, data_vars: List[str], src_for_tflag=None):
 
     # fallback: zeros
     if not tf_ok:
+        tf_dst = tfs_dst.get(TFLAG_NAME, None)
+        assert tf_dst is not None
         tf_dst[:] = 0
     return
 
@@ -273,7 +277,7 @@ def _copy_clean(infile: str, outfile: str, include_statics: bool = False, strict
                 continue
             setattr(dst, a, getattr(src, a))
 
-        # Copy variables except TFLAG or like (we handle TFLAG via finisher to preserve/validate)
+        # Copy variables except TFLAG or alike (we handle TFLAG via finisher to preserve/validate)
         for vname, v in src.variables.items():
             #if vname == TFLAG_NAME:
             if vname in TFLAG_NAMES:
@@ -293,6 +297,142 @@ def _copy_clean(infile: str, outfile: str, include_statics: bool = False, strict
         _finalize_metadata(dst, data_vars, src_for_tflag=src)
 
         return validate(dst, include_statics=include_statics)
+
+# ----------------- convenience wrappers (PNC-friendly) -----------------
+
+def needs_resize(nc, include_statics: bool = False) -> bool:
+    """
+    Return True if in-place sanitize would need to resize VAR or DATE-TIME.
+    """
+    data_vars = _detect_data_vars(nc, include_statics=include_statics)
+    nvars_new = len(data_vars)
+    var_len = _get_len(nc, "VAR")
+    dt_len  = _get_len(nc, "DATE-TIME")
+    return ((var_len is not None and var_len != nvars_new) or (dt_len not in (None, 2)))
+
+def sanitize_file(infile: str, outfile: str, *, include_statics: bool = False,
+                  strict: bool = False, return_report: bool = False):
+    """
+    File-to-file sanitize using the same logic as the CLI.
+    Returns report if return_report=True, else just the validation dict (for backward compat).
+    """
+    rep = _copy_clean(infile, outfile, include_statics=include_statics, strict=strict)
+    return rep if return_report else rep  # kept for symmetry; caller can ignore
+
+
+def sanitize(nc_or_path, *, inplace: bool = False, include_statics: bool = False,
+             strict: bool = False, prefer_ioapi_reader: bool = False,
+             return_path_if_no_pnc: bool = True, return_report: bool = False):
+    """
+    Sanitize a PseudoNetCDF object, a netCDF4 Dataset, or a file path.
+
+    Returns
+    -------
+    - If inplace=True: report (dict)
+    - If inplace=False:
+        * PNC object (if available) or output file path;
+        * if return_report=True, returns a tuple: (object_or_path, report)
+    """
+    # Case 1: a filesystem path
+    if isinstance(nc_or_path, str):
+        infile = nc_or_path
+        if inplace:
+            if Dataset is None:
+                raise RuntimeError("netCDF4 required to open path for in-place sanitize")
+            with Dataset(infile, "r+") as nc:
+                if needs_resize(nc, include_statics=include_statics):
+                    raise ValueError("in-place sanitize would require resizing; use inplace=False")
+                rep = sanitize_inplace(nc, include_statics=include_statics)
+                return rep
+        else:
+            tmpdir = tempfile.mkdtemp(prefix="ioapi_sani_")
+            try:
+                outfile = os.path.join(tmpdir, "clean.nc")
+                rep = _copy_clean(infile, outfile, include_statics=include_statics, strict=strict)
+                try:
+                    import PseudoNetCDF as pnc
+                    fmt = "ioapi" if prefer_ioapi_reader else "netcdf"
+                    dso = pnc.pncopen(outfile, format=fmt)
+                    return (dso, rep) if return_report else dso
+                except Exception:
+                    if return_path_if_no_pnc:
+                        return (outfile, rep) if return_report else outfile
+                    raise
+            except Exception:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                raise
+
+    # Case 2: a netCDF-like object (PNC or netCDF4.Dataset)
+    nc = nc_or_path
+
+    if inplace:
+        # Will raise if resize needed
+        rep = sanitize_inplace(nc, include_statics=include_statics)
+        return rep
+
+    # Not inplace: build a cleaned copy and return it as a PNC object if possible
+    tmpdir = tempfile.mkdtemp(prefix="ioapi_sani_")
+    try:
+        src_tmp = os.path.join(tmpdir, "src.nc")
+        out_tmp = os.path.join(tmpdir, "clean.nc")
+
+        # Try PNC save first
+        saved = False
+        try:
+            if hasattr(nc, "save") and callable(getattr(nc, "save")):
+                nc.save(src_tmp)
+                saved = True
+        except Exception:
+            saved = False
+
+        if not saved:
+            if Dataset is None:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                raise RuntimeError("netCDF4 required for non-PNC object copy")
+            # Try to locate a backing filepath
+            src_path = None
+            if hasattr(nc, "filepath"):
+                try:
+                    src_path = nc.filepath()
+                except Exception:
+                    src_path = None
+            if src_path and os.path.exists(src_path):
+                shutil.copy2(src_path, src_tmp)
+            else:
+                # Minimal manual copy (dims, attrs, vars)
+                with Dataset(src_tmp, "w") as dst:
+                    for dname, dim in nc.dimensions.items():
+                        dst.createDimension(dname, None if dim.isunlimited() else len(dim))
+                    for a in getattr(nc, "ncattrs", lambda: [])():
+                        setattr(dst, a, getattr(nc, a))
+                    for vname, v in nc.variables.items():
+                        fill = getattr(v, "_FillValue", None)
+                        kwargs = {}
+                        if fill is not None:
+                            kwargs["fill_value"] = fill
+                        outv = dst.createVariable(vname, v.dtype, v.dimensions, **kwargs)
+                        for attr in v.ncattrs():
+                            if attr == "_FillValue":
+                                continue
+                            setattr(outv, attr, getattr(v, attr))
+                        outv[:] = v[:]
+
+        # Now sanitize via copy-clean
+        rep = _copy_clean(src_tmp, out_tmp, include_statics=include_statics, strict=strict)
+
+        # Return a PNC object if available
+        try:
+            import PseudoNetCDF as pnc
+            fmt = "ioapi" if prefer_ioapi_reader else "netcdf"
+            dso = pnc.pncopen(out_tmp, format=fmt)
+            return (dso, rep) if return_report else dso
+        except Exception:
+            if return_path_if_no_pnc:
+                return (out_tmp, rep) if return_report else out_tmp
+            raise
+    except Exception:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
 
 # ----------------- CLI -----------------
 
