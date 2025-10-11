@@ -2,8 +2,14 @@
 
 
 import PseudoNetCDF as pnc
+from netCDF4 import Dataset
 import pandas as pd, numpy as np
 import warnings
+
+import ioapi_sanitize as isani
+#from . import ioapi_sanitize as isani
+#from pncutils import ioapi_sanitize as isani
+
 
 
 class MrgUam:
@@ -99,6 +105,12 @@ class MrgUam:
     def _mkheader(self):
         # attributes from input files
         f = [pnc.pncopen(str(_)) for _ in self.fnames]
+        # wish i could apply ioapi_sanitize.sanitize() here,, like below,  but
+        #f = [isani.sanitize(_, inplace=False) _ in f]
+        # somehow that lead to weird error later for variable and var-list
+        # couldnt find what;s wrong.  sanitize() itself appears working,
+        # fails when used here
+        # so gave it up. instead, i did approach using `varlist2_cleaned` below
         atts = [_.getncatts() for _ in f]
 
         # check compatibility of TSTEP
@@ -127,9 +139,15 @@ class MrgUam:
         self.varlists2 = varlists2
 
         # check compatibility of species
+        varlists2_cleaned = []
         for v in varlists2:
             units = {self.fnames[ifile]:ff.variables[v].units for ifile, ff in enumerate(f) if v in ff.variables}
             shapes = {self.fnames[ifile]:ff.variables[v].shape for ifile, ff in enumerate(f) if v in ff.variables}
+
+            # some input file may have inconsitent VAR-LIST
+            # orphant variable in VAR-LIST is skipped
+            if len(units) == 0:
+                continue
 
             units0 = next(iter(units.values())) 
             shape0 = next(iter(shapes.values())) 
@@ -146,6 +164,10 @@ class MrgUam:
 
                 raise ValueError('Inconsitent Shapes: {shapes_and_files}')
             print(f'{v}: units = {units0}, shape = {shape0}')
+            varlists2_cleaned.append(v)
+
+        varlists2 = varlists2_cleaned
+        self.varlists2 = varlists2_cleaned
 
 
 
