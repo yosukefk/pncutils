@@ -2,6 +2,7 @@ import PseudoNetCDF as pnc
 
 import numpy as np
 import os
+import warnings
 
 
 class Mda8:
@@ -12,6 +13,7 @@ class Mda8:
         :param fnames: list of input file names
         :param oname: (optional) output file name
         """
+        warnings.warn('Please use daily.MDA8O3 instead', DeprecationWarning)
         self.fnames = fnames
 
         not_file = [_ for _ in fnames if not os.path.exists]
