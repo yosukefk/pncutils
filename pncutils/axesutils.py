@@ -1,7 +1,7 @@
 '''miscelaneous unit conv'''
 
 from pyproj import CRS, Transformer
-import datetime
+import pandas as pd
 
 crs_emep = CRS.from_proj4('+proj=longlat +R=6370000 +no_defs')
 crs_tceq = CRS.from_proj4('+proj=lcc +lat_1=33 +lat_2=45 +lat_0=40 +lon_0=-97 +x_0=0 +y_0=0 +a=6370000 +b=6370000 +units=m +no_defs')
@@ -34,10 +34,17 @@ def tflag_to_time(tflag):
     :param tf: YYYYJJJ and HHMMSS
     :returns: python datetime
     """
-    t = ( datetime.datetime(tflag[0] // 1000 , 1, 1) 
-                + datetime.timedelta(days = tflag[0] % 1000 - 1) 
-                + datetime.timedelta(seconds = (tflag[1] // 10000) * 3600 + ((tflag[1] % 10000) // 100) * 60 + (tflag[1] % 100))
-                )
+    #t = ( datetime.datetime(tflag[0] // 1000 , 1, 1) 
+    #            + datetime.timedelta(days = tflag[0] % 1000 - 1) 
+    #            + datetime.timedelta(seconds = (tflag[1] // 10000) * 3600 + ((tflag[1] % 10000) // 100) * 60 + (tflag[1] % 100))
+    #            )
+    dpart = tflag[..., 0].squeeze().astype(str)
+    tpart = tflag[..., 1].squeeze()
+    t = (
+            pd.to_datetime( dpart, format='%Y%j') +
+            pd.to_timedelta(tpart / 10000 * 3600 + (tpart % 10000 // 100) * 60 + (tpart % 100), unit='sec')
+            )
+    #t = t.reshape(tflag.shape[:-1])
     return t
 
 
